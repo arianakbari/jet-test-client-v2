@@ -126,7 +126,6 @@ export default defineComponent({
         this.waitingForAnotherPlayer = this.gameSession.status === GAME_STATUS.WAITING_FOR_PLAYER;
         this.gameStarted = this.gameSession.status === GAME_STATUS.IN_PROGRESS;
         localStorage.setItem("email", this.email);
-        // localStorage.setItem("token", this.token);
       } catch (e) {
         this.dialog = {
           open: true,
