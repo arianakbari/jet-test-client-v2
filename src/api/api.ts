@@ -7,6 +7,7 @@ const instance = axios.create({
 export interface Player {
   id: string;
   email: string;
+  inputType: PLAYER_INPUT_TYPE;
 }
 
 export enum GAME_STATUS {
@@ -20,7 +21,9 @@ export interface GameSession {
   number: number;
   players: Player[];
   currentTurnPlayerId: string | null;
+  winnerId: string | null;
   status: GAME_STATUS;
+  mode: GAME_MODE;
 }
 
 export type GameResponse = { game: GameSession; token: string };
@@ -38,10 +41,19 @@ export enum GAME_EVENTS {
   STARTED = "STARTED",
   FINISHED = "FINISHED",
 }
+export enum GAME_MODE {
+  PLAYER_VS_PLAYER = "PLAYER_VS_PLAYER",
+  PLAYER_VS_COMPUTER = "PLAYER_VS_COMPUTER"
+}
 
-export const joinGame = async (email: string): Promise<GameResponse> => {
+export enum PLAYER_INPUT_TYPE {
+  MANUAL = "MANUAL",
+  AUTOMATIC = "AUTOMATIC"
+}
+
+export const joinGame = async (email: string, mode: GAME_MODE, inputType: PLAYER_INPUT_TYPE): Promise<GameResponse> => {
   try {
-    const response = await instance.post("/api/v1/game/join", { email });
+    const response = await instance.post("/api/v1/game/join", { email, mode, inputType });
     return response.data;
   } catch (e) {
     console.log(e);
@@ -49,7 +61,7 @@ export const joinGame = async (email: string): Promise<GameResponse> => {
   }
 };
 
-export const makeMove = async (choice: number, gameId: string, token: string): Promise<GameSession> => {
+export const makeMove = async (choice: number | null, gameId: string, token: string): Promise<GameSession> => {
   try {
     const response = await instance.post(
       "/api/v1/game/make-move",

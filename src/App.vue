@@ -26,8 +26,26 @@
               <v-card-text>
                 <v-text-field v-model="email" label="Email" type="email"></v-text-field>
               </v-card-text>
+              <v-card-text>
+                <v-select
+                  label="Game Mode"
+                  :items="['PLAYER_VS_PLAYER', 'PLAYER_VS_COMPUTER']"
+                  variant="outlined"
+                  type="string"
+                  v-model="mode"
+                ></v-select>
+              </v-card-text>
+              <v-card-text>
+                <v-select
+                  label="Input Type"
+                  :items="['MANUAL', 'AUTOMATIC']"
+                  variant="outlined"
+                  type="string"
+                  v-model="inputType"
+                ></v-select>
+              </v-card-text>
               <v-card-actions class="justify-center">
-                <v-btn @click="joinGame" color="black" :loading="loading" :disabled="!email">Start</v-btn>
+                <v-btn @click="joinGame" color="black" :loading="loading" :disabled="!email || !mode || !inputType">Start</v-btn>
               </v-card-actions>
             </v-card>
             <v-card class="game-card" v-if="waitingForAnotherPlayer" color="blue-grey-lighten-4">
@@ -40,7 +58,7 @@
             </v-card>
             <v-card
               class="game-card"
-              v-if="gameStarted && gameSession?.currentTurnPlayerId !== player?.id"
+              v-if="gameStarted && isManualGame(gameSession?.mode as any) && gameSession?.currentTurnPlayerId !== player?.id"
               color="blue-grey-lighten-4"
             >
               <v-card-text>
@@ -59,7 +77,7 @@
               <v-card-text class="text-center" style="margin-top: 10px"
                 ><h1>Number: {{ gameSession?.number }}</h1></v-card-text
               >
-              <v-card-text>
+              <v-card-text v-if="needsToSelectChoice(player)">
                 <v-select
                   label="Your Move"
                   :items="[-1, 0, 1]"
@@ -69,7 +87,7 @@
                 ></v-select>
               </v-card-text>
               <v-card-actions class="justify-center">
-                <v-btn @click="makeMove" color="black" :loading="loading" :disabled="choice === null">Make Move</v-btn>
+                <v-btn @click="makeMove" color="black" :loading="loading" :disabled="needsToSelectChoice(player) && choice === null">Make Move</v-btn>
               </v-card-actions>
             </v-card>
           </v-col>
@@ -83,7 +101,7 @@
 import { defineComponent } from "vue";
 import Pusher, { type AuthorizerCallback } from "pusher-js";
 import axios from "axios";
-import { GAME_EVENTS, GAME_STATUS, type GameSession, joinGame, makeMove, type Player, subscribe } from "./api/api";
+import { GAME_EVENTS, GAME_STATUS, type GameSession, joinGame, makeMove, type Player, subscribe, GAME_MODE, PLAYER_INPUT_TYPE } from "./api/api";
 
 export default defineComponent({
   name: "App",
@@ -107,6 +125,8 @@ export default defineComponent({
       token: "",
       player: null as Player | null,
       choice: null as number | null,
+      mode: null as string | null,
+      inputType: null as string | null,
       waitingForAnotherPlayer: false,
       gameStarted: false,
       gameSession: null as GameSession | null,
@@ -115,16 +135,23 @@ export default defineComponent({
     };
   },
   methods: {
+    isManualGame(mode: GAME_MODE) {
+      return mode === GAME_MODE.PLAYER_VS_PLAYER
+    },
+    needsToSelectChoice(player: Player | null) {
+      return player?.inputType === PLAYER_INPUT_TYPE.MANUAL;
+    },
     async joinGame() {
       try {
         this.loading = true;
-        const response = await joinGame(this.email);
+        const response = await joinGame(this.email, this.mode as GAME_MODE, this.inputType as PLAYER_INPUT_TYPE);
         this.token = response.token;
         this.gameSession = response.game;
         this.player = response.game.players.find((p) => p.email === this.email)!;
         await this.subscribe(this.player.id, response.token);
-        this.waitingForAnotherPlayer = this.gameSession.status === GAME_STATUS.WAITING_FOR_PLAYER;
+        this.waitingForAnotherPlayer = this.gameSession.status === GAME_STATUS.WAITING_FOR_PLAYER && this.isManualGame(this.gameSession.mode);
         this.gameStarted = this.gameSession.status === GAME_STATUS.IN_PROGRESS;
+        console.log(this.waitingForAnotherPlayer, this.gameStarted, response);
         localStorage.setItem("email", this.email);
       } catch (e) {
         this.dialog = {
@@ -142,9 +169,9 @@ export default defineComponent({
     async makeMove() {
       try {
         this.loading = true;
-        const response = await makeMove(this.choice!, this.gameSession?.id!, this.token);
+        const response = await makeMove(this.choice, this.gameSession?.id!, this.token);
         if (response.status === GAME_STATUS.FINISHED) {
-          return this.finishGame(true);
+          return this.finishGame(response.winnerId === this.player?.id);
         }
         this.gameSession = response;
         this.choice = null;
@@ -189,6 +216,7 @@ export default defineComponent({
         this.finishGame(false);
       });
       channel.bind(GAME_EVENTS.TURN_PLAYED, (data: GameSession) => {
+        console.log(data);
         this.gameSession = data;
       });
     },
@@ -219,6 +247,8 @@ export default defineComponent({
       this.loading = false;
       this.gameStarted = false;
       this.waitingForAnotherPlayer = false;
+      this.mode = null;
+      this.inputType = null;
     },
     closeDialog() {
       this.dialog = {
