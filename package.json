@@ -1,5 +1,5 @@
 {
-  "name": "jet-test-client",
+  "name": "jet-test-client-v2",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "type-check": "vue-tsc --build --force",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
     "format": "prettier --write src/",
-    "live": "liara deploy --app=jet-test --no-app-logs --platform=vue"
+    "live": "liara deploy --app=jet-test-v2 --no-app-logs --platform=vue"
   },
   "dependencies": {
     "axios": "^1.6.7",
